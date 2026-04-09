@@ -1,13 +1,14 @@
-import requests
+from playwright.sync_api import sync_playwright
 import csv
 import os
 import re
+import requests
 import time
 
 TOKEN = "8740732233:AAFuRZd2AVE_0TdcA2y0wWXu1OCJigAul3E"
 CHAT_ID = "5895658222"
 
-def send_telegram(msg):
+def send(msg):
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
     requests.post(url, data={"chat_id": CHAT_ID, "text": msg})
 
@@ -29,39 +30,37 @@ with open("Cat.csv", newline='', encoding='utf-8') as f:
 new_bids = []
 all_bids = set()
 
-headers = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-    "Accept-Language": "en-US,en;q=0.9"
-}
+with sync_playwright() as p:
+    browser = p.chromium.launch(headless=True)
+    page = browser.new_page()
 
-for cat in categories:
-    try:
-        print(f"Checking: {cat}")
+    for cat in categories:
+        try:
+            print(f"Checking: {cat}")
 
-        url = "https://bidplus.gem.gov.in/all-bids"
-        params = {"q": cat}
+            page.goto(f"https://bidplus.gem.gov.in/all-bids?q={cat}", timeout=60000)
+            time.sleep(5)
 
-        res = requests.get(url, headers=headers, params=params, timeout=20)
-        html = res.text
+            html = page.content()
 
-        found = re.findall(r"GEM/\d+/B/\d+", html)
+            found = re.findall(r"GEM/\d+/B/\d+", html)
 
-        for bid in found:
-            full = f"{bid} | {cat}"
-            all_bids.add(full)
+            for bid in found:
+                full = f"{bid} | {cat}"
+                all_bids.add(full)
 
-            if full not in seen:
-                new_bids.append(full)
+                if full not in seen:
+                    new_bids.append(full)
 
-        time.sleep(3)
+        except Exception as e:
+            print(f"Error: {e}")
 
-    except Exception as e:
-        print(f"Error in {cat}: {e}")
+    browser.close()
 
 # Send new bids
 for bid in new_bids:
     bid_id, cat = bid.split(" | ")
-    send_telegram(f"🆕 New Tender\n📦 {cat}\n🆔 {bid_id}")
+    send(f"🆕 New Tender\n📦 {cat}\n🆔 {bid_id}")
 
 # Save
 with open("seen.txt", "w") as f:
