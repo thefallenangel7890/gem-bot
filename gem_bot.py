@@ -7,7 +7,7 @@ import time
 
 # 🔐 Telegram
 TOKEN = "8740732233:AAFuRZd2AVE_0TdcA2y0wWXu1OCJigAul3E"
-CHAT_ID = "5895658222"
+CHAT_ID = "GeM_Tender_Alerts"
 
 def send(msg):
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
