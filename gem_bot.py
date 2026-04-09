@@ -4,26 +4,21 @@ import os
 import re
 import time
 
-# 🔐 Telegram Credentials
 TOKEN = "8740732233:AAFuRZd2AVE_0TdcA2y0wWXu1OCJigAul3E"
 CHAT_ID = "5895658222"
 
-# 📩 Send message to Telegram
-def send_telegram(message):
+def send_telegram(msg):
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
-    try:
-        requests.post(url, data={"chat_id": CHAT_ID, "text": message})
-    except:
-        pass
+    requests.post(url, data={"chat_id": CHAT_ID, "text": msg})
 
-# 📂 Load already seen bids
+# Load seen bids
 if os.path.exists("seen.txt"):
     with open("seen.txt", "r") as f:
-        seen_bids = set(f.read().splitlines())
+        seen = set(f.read().splitlines())
 else:
-    seen_bids = set()
+    seen = set()
 
-# 📂 Load categories from CSV
+# Load categories
 categories = []
 with open("Cat.csv", newline='', encoding='utf-8') as f:
     reader = csv.reader(f)
@@ -31,63 +26,46 @@ with open("Cat.csv", newline='', encoding='utf-8') as f:
         if row:
             categories.append(row[0].strip())
 
-# 🧠 Store new bids
 new_bids = []
 all_bids = set()
 
-# 🔍 Fetch bids for each category
-for category in categories:
+headers = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+    "Accept-Language": "en-US,en;q=0.9"
+}
+
+for cat in categories:
     try:
-        print(f"Checking: {category}")
+        print(f"Checking: {cat}")
 
-        url = f"https://bidplus.gem.gov.in/all-bids?q={category}"
-        headers = {
-            "User-Agent": "Mozilla/5.0"
-        }
+        url = "https://bidplus.gem.gov.in/all-bids"
+        params = {"q": cat}
 
-        response = requests.get(url, headers=headers, timeout=15)
-        html = response.text
+        res = requests.get(url, headers=headers, params=params, timeout=20)
+        html = res.text
 
-        # 🔎 Extract bid numbers
-        found_bids = re.findall(r"GEM/\d+/B/\d+", html)
+        found = re.findall(r"GEM/\d+/B/\d+", html)
 
-        for bid in found_bids:
-            full_bid = f"{bid} | {category}"
-            all_bids.add(full_bid)
+        for bid in found:
+            full = f"{bid} | {cat}"
+            all_bids.add(full)
 
-            if full_bid not in seen_bids:
-                new_bids.append(full_bid)
+            if full not in seen:
+                new_bids.append(full)
 
-        time.sleep(2)  # avoid blocking
+        time.sleep(3)
 
     except Exception as e:
-        print(f"Error in {category}: {e}")
+        print(f"Error in {cat}: {e}")
 
-# 📤 Send only NEW bids
-if new_bids:
-    for bid in new_bids:
-        try:
-            bid_id, category = bid.split(" | ")
+# Send new bids
+for bid in new_bids:
+    bid_id, cat = bid.split(" | ")
+    send_telegram(f"🆕 New Tender\n📦 {cat}\n🆔 {bid_id}")
 
-            message = f"""
-🆕 New GeM Tender
-
-📦 Category: {category}
-🆔 Bid No: {bid_id}
-
-🔗 https://bidplus.gem.gov.in/all-bids
-"""
-            send_telegram(message)
-            time.sleep(1)
-
-        except:
-            pass
-else:
-    print("No new bids today.")
-
-# 💾 Save updated bids
+# Save
 with open("seen.txt", "w") as f:
-    for bid in seen_bids.union(all_bids):
-        f.write(bid + "\n")
+    for b in seen.union(all_bids):
+        f.write(b + "\n")
 
-print("✅ Done")
+print("Done")
